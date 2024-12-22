@@ -179,6 +179,11 @@ public class CommandSwerveDrivetrain extends SwerveDrivetrain implements Subsyst
         configureAutoBuilder();
     }
 
+    // Simulation stuff, pls don't use irl
+    public SwerveDriveState getSimState() {
+        return getState();
+    }
+
     private void configureAutoBuilder() {
         try {
             var config = RobotConfig.fromGUISettings();

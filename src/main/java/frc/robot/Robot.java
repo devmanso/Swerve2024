@@ -7,6 +7,8 @@ package frc.robot;
 import com.ctre.phoenix6.Utils;
 
 import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 
@@ -17,13 +19,20 @@ public class Robot extends TimedRobot {
 
   private final boolean kUseLimelight = false;
 
+  // simulation stuff
+  private final Field2d field = new Field2d();
+
   public Robot() {
     m_robotContainer = new RobotContainer();
+    SmartDashboard.putData(field);
   }
 
   @Override
   public void robotPeriodic() {
     CommandScheduler.getInstance().run();
+
+    // update positiion on field simulation
+    field.setRobotPose(m_robotContainer.drivetrain.getSimState().Pose);
 
     /*
      * This example of adding Limelight is very simple and may not be sufficient for on-field use.
