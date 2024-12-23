@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.button.CommandPS4Controller;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
@@ -36,8 +37,11 @@ public class RobotContainer {
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
 
     private final Telemetry logger = new Telemetry(MaxSpeed);
+    
+    // dualshock 4 controller for simulation stuff
+    private final CommandPS4Controller ds4 = new CommandPS4Controller(0);
 
-    private final CommandXboxController joystick = new CommandXboxController(0);
+    private final CommandXboxController xbox = new CommandXboxController(1);
     private final Joystick bigJoystick = new Joystick(2);
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
@@ -45,21 +49,54 @@ public class RobotContainer {
     private final SendableChooser<Command> autoChooser;
 
     public RobotContainer() {
-        autoChooser = AutoBuilder.buildAutoChooser("Tests");
+        autoChooser = AutoBuilder.buildAutoChooser("My New Auto");
         SmartDashboard.putData("Auto Mode", autoChooser);
         configureBindings();
     }
 
-    double deadband = 0.2;
+    double aim() {
+        // kP (constant of proportionality)
+        // this is a hand-tuned number that determines the aggressiveness of our proportional control loop
+        // if it is too high, the robot will oscillate around.
+        // if it is too low, the robot will never reach its target
+        // if the robot never turns in the correct direction, kP should be inverted.
+        double kP = .035;
+
+        // tx ranges from (-hfov/2) to (hfov/2) in degrees. If your target is on the rightmost edge of 
+        // your limelight 3 feed, tx should return roughly 31 degrees.
+        double targetingAngularVelocity = LimelightHelpers.getTX("limelight") * kP;
+
+        // convert to radians per second for our drive method
+        targetingAngularVelocity *= MaxAngularRate;
+
+        //invert since tx is positive when the target is to the right of the crosshair
+        targetingAngularVelocity *= -1.0;
+
+        return targetingAngularVelocity;
+    }
+
+    double range() {
+        double kP = .1;
+        double targetingForwardSpeed = LimelightHelpers.getTY("limelight") * kP;
+        targetingForwardSpeed *= MaxSpeed;
+        targetingForwardSpeed *= -1.0;
+        return targetingForwardSpeed;
+    }
 
     private void configureBindings() {
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
         drivetrain.setDefaultCommand(
             drivetrain.applyRequest(() -> {
-                double velocityX = -bigJoystick.getY();
-                double velocityY = -bigJoystick.getX();
-                double rotationalRate = (bigJoystick.getZ() * .5) * -1;
+                double deadband = 0.2;
+                
+                // Big joystick controls
+                // double velocityX = -bigJoystick.getY();
+                // double velocityY = -bigJoystick.getX();
+                // double rotationalRate = (bigJoystick.getZ() * .5) * -1;
+                double velocityX = -ds4.getLeftY();
+                double velocityY = -ds4.getLeftX();
+                double rotationalRate = -ds4.getRightX();
     
                 // Apply deadband to velocityX
                 if (Math.abs(velocityX) < deadband) {
@@ -81,6 +118,17 @@ public class RobotContainer {
                 } else {
                     rotationalRate = (rotationalRate - Math.signum(rotationalRate) * deadband) / (1 - deadband);
                 }
+
+                // TODO: Identify which button you need to press and change button number accordingly
+                // if(bigJoystick.getRawButton(1)) {
+                //     final double rotation = aim();
+                //     rotationalRate = rotation;
+
+                //     final double forward = range();
+                //     velocityX = forward;
+
+                //     // Limelight docs say to disable field-oriented drive, but idk how
+                // }
     
                 return drive
                     .withVelocityX(velocityX * MaxSpeed)
@@ -89,27 +137,43 @@ public class RobotContainer {
             })
         );
 
-        joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
-        joystick.b().whileTrue(drivetrain.applyRequest(() ->
-            point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))
+        xbox.a().whileTrue(drivetrain.applyRequest(() -> brake));
+        xbox.b().whileTrue(drivetrain.applyRequest(() ->
+            point.withModuleDirection(new Rotation2d(-xbox.getLeftY(), -xbox.getLeftX()))
         ));
 
-        joystick.pov(0).whileTrue(drivetrain.applyRequest(() ->
+        xbox.pov(0).whileTrue(drivetrain.applyRequest(() ->
             forwardStraight.withVelocityX(0.5).withVelocityY(0))
         );
-        joystick.pov(180).whileTrue(drivetrain.applyRequest(() ->
+        xbox.pov(180).whileTrue(drivetrain.applyRequest(() ->
             forwardStraight.withVelocityX(-0.5).withVelocityY(0))
         );
 
+        ds4.pov(0).whileTrue(drivetrain.applyRequest(() ->
+            forwardStraight.withVelocityX(0.5).withVelocityY(0))
+        );
+        ds4.pov(180).whileTrue(drivetrain.applyRequest(() ->
+            forwardStraight.withVelocityX(-0.5).withVelocityY(0))
+        );
+        
+        // This function needs testing
+        ds4.triangle().whileTrue(drivetrain.applyRequest(() -> {
+            final double rotation = aim();
+            final double forward = range();
+            return forwardStraight.withVelocityX(forward)
+                .withVelocityY(0)
+                .withRotationalRate(rotation * MaxAngularRate);
+        }));
+
         // Run SysId routines when holding back/start and X/Y.
         // Note that each routine should be run exactly once in a single log.
-        joystick.back().and(joystick.y()).whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
-        joystick.back().and(joystick.x()).whileTrue(drivetrain.sysIdDynamic(Direction.kReverse));
-        joystick.start().and(joystick.y()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kForward));
-        joystick.start().and(joystick.x()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
+        xbox.back().and(xbox.y()).whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
+        xbox.back().and(xbox.x()).whileTrue(drivetrain.sysIdDynamic(Direction.kReverse));
+        xbox.start().and(xbox.y()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kForward));
+        xbox.start().and(xbox.x()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
 
         // reset the field-centric heading on left bumper press
-        joystick.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
+        xbox.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
 
         drivetrain.registerTelemetry(logger::telemeterize);
     }
