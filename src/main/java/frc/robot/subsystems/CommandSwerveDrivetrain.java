@@ -18,12 +18,16 @@ import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.util.sendable.Sendable;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -265,6 +269,16 @@ public class CommandSwerveDrivetrain extends SwerveDrivetrain implements Subsyst
                 m_hasAppliedOperatorPerspective = true;
             });
         }
+
+        // Push data through SmartDashboard, then view it in Elastic
+        double robotSpeeds = Math.sqrt(
+            (getState().Speeds.vxMetersPerSecond * getState().Speeds.vxMetersPerSecond)
+            + (getState().Speeds.vyMetersPerSecond * getState().Speeds.vyMetersPerSecond)) * 3.28084;
+
+        SmartDashboard.putData("Pigeon 2.0",getPigeon2());
+        SmartDashboard.putNumber("Voltage", RobotController.getBatteryVoltage());
+        SmartDashboard.putNumber("Speed (ft/s)", robotSpeeds);
+        SmartDashboard.putNumber("Match Time", Timer.getMatchTime());
     }
 
     private void startSimThread() {
