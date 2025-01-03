@@ -94,9 +94,9 @@ public class RobotContainer {
                 // double velocityX = -bigJoystick.getY();
                 // double velocityY = -bigJoystick.getX();
                 // double rotationalRate = (bigJoystick.getZ() * .5) * -1;
-                double velocityX = -ds4.getLeftY();
-                double velocityY = -ds4.getLeftX();
-                double rotationalRate = -ds4.getRightX();
+                double velocityX = -xbox.getLeftY();
+                double velocityY = -xbox.getLeftX();
+                double rotationalRate = -xbox.getRightX();
     
                 // Apply deadband to velocityX
                 if (Math.abs(velocityX) < deadband) {
@@ -157,9 +157,9 @@ public class RobotContainer {
         );
         
         // This function needs testing
-        ds4.triangle().whileTrue(drivetrain.applyRequest(() -> {
-            final double rotation = aim();
-            final double forward = range();
+        xbox.leftBumper().whileTrue(drivetrain.applyRequest(() -> {
+            final double rotation = -aim() * .5;
+            final double forward = -range() * .5;
             return forwardStraight.withVelocityX(forward)
                 .withVelocityY(0)
                 .withRotationalRate(rotation * MaxAngularRate);
